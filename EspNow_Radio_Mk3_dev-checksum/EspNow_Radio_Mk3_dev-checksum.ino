@@ -7,25 +7,33 @@
 uint8_t broadcastAddress[] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF}; //geral
 
 // Variable to store if sending data was successful
-String success;
+//String success;
 
-bool flagDataFail = false;
+bool flagNewSerial = false; //indica novo caractere serial chegando
+bool ack = false; //indica sucesso na recepcao de uma mensagem e apaga o conteudo ja enviado
+bool notack = false; //indica a falha na recepcao de uma mensagem e nova tentativa
+bool printa = false;
+int outChecksum; //armazena valor do checksum da mensagem... talvez nao sera usado
+char outBuffer[240]; //buffer para receber a leitura Serial.readBytes;
+int outIndex = 0; //indice da formacao da mensagem no outCourier.inout[outIndex]
+int readsize = 0; //tamanho da mensagem recebida na Serial.readBytes
 
-// Define variables to store DHT readings to be sent
-float temperature;
-float humidity;
-String outString;
 
 // Define variables to store incoming readings
 float incomingTemp;
 float incomingTempLast;
 float incomingHum;
+int incomingChecksum;
 
 
 typedef struct struct_message {
-  float temp;
-  float hum;
-  char inout[240];
+  float temp; //indica mensagem nova
+  float hum; //tamanho da mensagem
+  int checksum; //soma dos do valor dos bytes da mensagem
+  bool ack;
+  bool notack;
+  bool printa;
+  char inout[240]; //string de caracteres da mensagem
 } struct_message;
 
 // Create a struct_message called DHTReadings to hold sensor readings
@@ -34,6 +42,7 @@ struct_message outCourier; //DHTReadings;
 
 // Create a struct_message to hold incoming sensor readings
 struct_message inCourier; //incomingReadings;
+
 
 // Callback when data is sent
 void OnDataSent(uint8_t *mac_addr, uint8_t sendStatus) {
@@ -45,17 +54,18 @@ void OnDataSent(uint8_t *mac_addr, uint8_t sendStatus) {
   else {
     Serial.print("Last Packet Send Status: ");
     Serial.println("Delivery fail");
-    flagDataFail = true;
   }
 }
 
 // Callback when data is received
 void OnDataRecv(uint8_t * mac, uint8_t *incomingData, uint8_t len) {
   memcpy(&inCourier, incomingData, sizeof(inCourier));
-  //Serial.print("Bytes received: ");
-  //Serial.println(len);
   incomingTemp = inCourier.temp;
   incomingHum = inCourier.hum;
+  incomingChecksum = inCourier.checksum;
+  ack = inCourier.ack;
+  notack = inCourier.notack;
+  printa = inCourier.printa;
  }
 
 
@@ -104,27 +114,80 @@ void setup() {
 
 void loop() {
 
-  // Send message via ESP-NOW
+  //Leitura da porta serial
   if(Serial.available()){
-    int readsize = Serial.readBytes(outCourier.inout,sizeof(outCourier.inout));//outCourier.inout recebe a string
-//    for(int aux = 0; aux <= readsize; aux++){
-//      if(outCourier.inout[aux] == '\r'){
-//        outCourier.inout[aux] = 0;
-//        } 
-//      }
+    readsize = Serial.readBytes(outBuffer,sizeof(outBuffer));//outCourier.inout recebe a string
+    flagNewSerial = true;
+      }
+  
+  //Montagem da mensagem para envio
+  if (flagNewSerial == true or notack == true){
+    notack = false;
+    flagNewSerial = false;
+    ///// Montando a mensagem
     outCourier.temp = outCourier.temp + 1; //Indica ao radio receptor que uma nova string chegou;
+    //// Copia o conteudo da string na mensagem de ida:
+    for(int aux = 0; aux <= readsize; aux++){
+      outCourier.inout[outIndex] = outBuffer[aux]; //copia a mensagem no buffer para o correio de saida
+      outIndex++;
+      outBuffer[aux] = 0; //apaga a mensagem no buffer
+      if (outIndex > 240){
+        Serial.println("OVERBUFF");
+        outIndex = 0;
+        }
+      }
+    readsize = 0; //zera o readsize caso passe por aqui de novo por um notack. Evita rescrita em caso de notack
+    //// Calcula o checksum da nova mensagem
+    int checksum = 0;
+    for (int aux = 0; aux <= sizeof(outCourier.inout); aux++){
+      checksum += outCourier.inout[aux];
+      }
+    outCourier.checksum = checksum;
+    ////
+    outCourier.ack = false; //nao eh uma mensagem de checagem
+    outCourier.notack = false; //nao eh uma mensagem de checagem
+    outCourier.printa = true; //eh uma mensagem para printar
+    
+    ///// Enviando a mensagem
     esp_now_send(broadcastAddress, (uint8_t *) &outCourier, sizeof(outCourier));
-      for(int aux = 0; aux <= readsize; aux++){
-        outCourier.inout[aux] = 0;
+  }
+      
+  ///// APAGA A MENSAGEM NO CORREIO DE SAIDA DEPOIS DE RECEBER O ACK
+  if (ack){
+    ack = false;
+    notack = false;
+    for(int aux = 0; aux <= sizeof(outCourier.inout); aux++){
+      outCourier.inout[aux] = 0;
       }
     }
+    
+  ///// CHECA SE HA NOVAS MENSAGENS E SE EH PARA PRINTAR O CORREIO DE CHEGADA
+  if (incomingTemp != incomingTempLast and printa) { //outCourier.temp incrementa o incomingTemp - assim indica nova string
+    incomingTempLast = incomingTemp;
+    
+    ////Checagem do tamanho da mensagem
+    int checksum = 0;
+    for(int aux = 0; aux <= sizeof(inCourier.inout); aux++){
+      if(inCourier.inout[aux] != 0){ 
+        checksum = checksum + inCourier.inout[aux];
+        }
+      }
+    //Se o checksum e o tamanho da mensagem bater, printa a mensagem;
+    if(checksum == inCourier.checksum){
+      Serial.print(inCourier.inout);
+      outCourier.ack = true;
+      outCourier.notack = false;
+      outCourier.printa = false;
+      }
+    else{
+      outCourier.ack = false;
+      outCourier.notack = true;
+      outCourier.printa = false;
+      }
+      esp_now_send(broadcastAddress, (uint8_t *) &outCourier, sizeof(outCourier));      
+             
+  }
 
-//  delay(5);
-//  if(flagDataFail){
-//    flagDataFail = false;
-//    delay(100);
-//    }
-  
   //TESTE DE ENVIO A JATO
 //  String temp = String(millis());
 //  Serial.println(millis());
@@ -142,13 +205,4 @@ void loop() {
   if (millis() > (t0 + 1000)) {
     t0 = millis();
     }
-    
-  // Print incoming readings
-  if (incomingTemp != incomingTempLast) { //outCourier.temp incrementa o incomingTemp - assim indica nova string
-    incomingTempLast = incomingTemp;
-    Serial.print(inCourier.inout);
-    for(int aux = 0; aux <= sizeof(inCourier.inout);aux++){
-      inCourier.inout[aux] = 0;
-      }
-  }
 }
