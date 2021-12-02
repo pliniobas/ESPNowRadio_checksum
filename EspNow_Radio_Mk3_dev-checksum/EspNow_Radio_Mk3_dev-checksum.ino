@@ -5,6 +5,12 @@
 //uint8_t broadcastAddress[] = {0x2C, 0x3A, 0xE8, 0x0F, 0x14, 0x21}; //veia - setar na nova
 //uint8_t broadcastAddress[] = {0x2C, 0x3A, 0xE8, 0x0F, 0x14, 0x21}; //nova - setar na veia
 uint8_t broadcastAddress[] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF}; //geral
+//uint8_t broadcastAddress[] = {0xDC, 0x4F, 0x22, 0x18, 0x4C, 0x96}; //Paca com X - upar na com12
+//uint8_t broadcastAddress[] = {0xDC, 0x4F, 0x22, 0x18, 0x01, 0xA3}; //geral com 2 - upar na com11
+int baud = 115200;
+//int baud = 460800;
+
+
 
 // Variable to store if sending data was successful
 //String success;
@@ -22,13 +28,13 @@ int readsize = 0; //tamanho da mensagem recebida na Serial.readBytes
 // Define variables to store incoming readings
 float incomingTemp;
 float incomingTempLast;
-float incomingHum;
+int incomingHum;
 int incomingChecksum;
 
 
 typedef struct struct_message {
   int temp; //indica mensagem nova
-  bool hum; //tamanho da mensagem
+  uint8_t hum; //tamanho da mensagem
   int checksum; //soma dos do valor dos bytes da mensagem
   bool ack;
   bool notack;
@@ -74,7 +80,7 @@ unsigned long t0 = millis();
 
 void setup() {
   // Init Serial Monitor
- // Serial.begin(460800); //DMS
+ // Serial.begin(baud); //DMS
 //  Serial.begin(19200); //Boia
   Serial.begin(115200);
    
@@ -108,7 +114,7 @@ void setup() {
 
   outCourier.temp = 0;
   outCourier.hum = 0;
-  Serial.setTimeout(1);
+  Serial.setTimeout(5);
  
 }
 
@@ -118,10 +124,10 @@ void loop() {
   //// LEITURA DA PORTA SERIAL PARA ENVIO
   if(Serial.available()){
     readsize = Serial.readBytes(outBuffer,sizeof(outBuffer));//outCourier.inout recebe a string
-    //Serial.println("readsize");
-    //Serial.println(readsize);
-    //Serial.println("outBuffer");
-    //Serial.println(outBuffer);
+//    Serial.println("readsize");
+//    Serial.println(readsize);
+//    Serial.println("outBuffer");
+//    Serial.println(outBuffer);
     flagNewSerial = true;
       }
   
@@ -135,7 +141,7 @@ void loop() {
     flagNewSerial = false;
     ///// Montando a mensagem
     outCourier.temp = outCourier.temp + 1; //Indica ao radio receptor que uma nova string chegou;
-    
+    outCourier.hum = readsize;
     //// Copia o conteudo da string na mensagem de ida:
     for(int aux = 0; aux <= readsize; aux++){
       outCourier.inout[outIndex] = outBuffer[aux]; //copia a mensagem no buffer para o correio de saida
@@ -191,14 +197,24 @@ void loop() {
         checksum = checksum + inCourier.inout[aux];
         }
       }
-    //Serial.println("inCourier.checksum");  
-    //Serial.println(inCourier.checksum);
-    //Serial.println("checksum");  
-    //Serial.println(checksum);
+//    Serial.println("inCourier.checksum");  
+//    Serial.println(inCourier.checksum);
+//    Serial.println("checksum");  
+//    Serial.println(checksum);
+//    Serial.println("incomingHum");
+//    Serial.println(incomingHum);
     //Se o checksum e o tamanho da mensagem bater, printa a mensagem;
     if(checksum == inCourier.checksum){
-      //Serial.println("inCourier.inout");
-      Serial.print(inCourier.inout);
+//      Serial.println("inCourier.inout");
+//      char temp[incomingHum + 1];
+      int aux = 0;
+      for(aux = 0; aux < incomingHum; aux++){
+//        temp[aux] = inCourier.inout[aux];
+        Serial.print(inCourier.inout[aux]);
+        }
+//      aux++;
+//      temp[aux] = 0;
+//      Serial.print(temp);
       outCourier.ack = true;
       outCourier.notack = false;
       outCourier.printa = false;
@@ -209,8 +225,15 @@ void loop() {
       outCourier.notack = true;
       outCourier.printa = false;
       }
+      char tempstring[sizeof(outCourier.inout)];
+      for(int aux = 0; aux <= sizeof(tempstring); aux++){
+        tempstring[aux] = outCourier.inout[aux];
+        outCourier.inout[aux] = 0;
+        }
       esp_now_send(broadcastAddress, (uint8_t *) &outCourier, sizeof(outCourier));      
-             
+      for(int aux = 0; aux <= sizeof(tempstring); aux++){
+         outCourier.inout[aux] = tempstring[aux];
+        }       
   }
 
   //TESTE DE ENVIO A JATO
