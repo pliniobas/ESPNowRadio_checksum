@@ -11,10 +11,6 @@ int baud = 115200;
 //int baud = 460800;
 
 
-
-// Variable to store if sending data was successful
-//String success;
-
 bool flagNewSerial = false; //indica novo caractere serial chegando
 bool ack = false; //indica sucesso na recepcao de uma mensagem e apaga o conteudo ja enviado
 bool notack = false; //indica a falha na recepcao de uma mensagem e nova tentativa
@@ -22,7 +18,11 @@ bool printa = false; //indica se o correio tem mensagem a ser printada ou se eh 
 int outChecksum; //armazena valor do checksum da mensagem... talvez nao sera usado
 char outBuffer[230]; //buffer para receber a leitura Serial.readBytes;
 int outIndex = 0; //indice da formacao da mensagem no outCourier.inout[outIndex]
-int readsize = 0; //tamanho da mensagem recebida na Serial.readBytes
+
+
+long readsize = 0; //tamanho da mensagem recebida na Serial.readBytes
+char serialbuffer[10000];
+long totalreadsize = 0;
 
 
 // Define variables to store incoming readings
@@ -35,7 +35,7 @@ int incomingChecksum;
 typedef struct struct_message {
   int temp; //indica mensagem nova
   uint8_t hum; //tamanho da mensagem
-  int checksum; //soma dos do valor dos bytes da mensagem
+  long checksum; //soma dos do valor dos bytes da mensagem
   bool ack;
   bool notack;
   bool printa;
@@ -82,6 +82,7 @@ void setup() {
   // Init Serial Monitor
  // Serial.begin(baud); //DMS
 //  Serial.begin(19200); //Boia
+  ::setRxBufferSize(size_t size)
   Serial.begin(115200);
    
 
@@ -114,7 +115,7 @@ void setup() {
 
   outCourier.temp = 0;
   outCourier.hum = 0;
-  Serial.setTimeout(5);
+  Serial.setTimeout(1);
  
 }
 
@@ -123,7 +124,7 @@ void loop() {
 
   //// LEITURA DA PORTA SERIAL PARA ENVIO
   if(Serial.available()){
-    readsize = Serial.readBytes(outBuffer,sizeof(outBuffer));//outCourier.inout recebe a string
+    readsize += Serial.readBytes(outBuffer,sizeof(outBuffer));//outCourier.inout recebe a string
 //    Serial.println("readsize");
 //    Serial.println(readsize);
 //    Serial.println("outBuffer");
@@ -146,7 +147,7 @@ void loop() {
     for(int aux = 0; aux <= readsize; aux++){
       outCourier.inout[outIndex] = outBuffer[aux]; //copia a mensagem no buffer para o correio de saida
       outIndex++;
-      if (outIndex > 240){
+      if (outIndex > sizeof(outCourier.inout)){
         Serial.println("OVERBUFF");
         outIndex = 0;
         }
@@ -180,6 +181,7 @@ void loop() {
     //Serial.println("if(ack)");
     ack = false;
     notack = false;
+    readsize = 0;
     outIndex = 0; //zera o indice da variavel outCourier.inout
     for(int aux = 0; aux <= sizeof(outCourier.inout); aux++){
       outCourier.inout[aux] = 0;
