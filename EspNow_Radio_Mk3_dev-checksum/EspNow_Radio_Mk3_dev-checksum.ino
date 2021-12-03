@@ -10,7 +10,7 @@ uint8_t broadcastAddress[] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF}; //geral
 int baud = 115200;
 //int baud = 460800;
 
-
+//Variaveis de controle de envio
 bool flagNewSerial = false; //indica novo caractere serial chegando
 bool ack = false; //indica sucesso na recepcao de uma mensagem e apaga o conteudo ja enviado
 bool notack = false; //indica a falha na recepcao de uma mensagem e nova tentativa
@@ -20,10 +20,13 @@ char outBuffer[230]; //buffer para receber a leitura Serial.readBytes;
 int outIndex = 0; //indice da formacao da mensagem no outCourier.inout[outIndex]
 
 
-long readsize = 0; //tamanho da mensagem recebida na Serial.readBytes
-char serialbuffer[10000];
-long totalreadsize = 0;
 
+// Variaveis de leitura de string
+String sb[1000]; //serialBuffer - armazena as strings que forem sendo recebidas
+bool sbf[1000]; //serialBufferFlag - indica se o indice tem mensagem a ser enviada.
+unsigned int sbi; //serialBufferIndex - indice dos arrays de sb. Tambem sera usado como message number. Entra no hum da
+int readsize = 0; // cancelando...
+uint8_t sbArraySize = 1000; //igual ao tamanho do array sb[sbArraySize]
 
 // Define variables to store incoming readings
 float incomingTemp;
@@ -32,15 +35,19 @@ int incomingHum;
 int incomingChecksum;
 
 
+
 typedef struct struct_message {
   int temp; //indica mensagem nova
   uint8_t hum; //tamanho da mensagem
+  uint8_t mSize; //tamanho da mensagem
+  uint8_t mNumber; //numero da mensagem
   long checksum; //soma dos do valor dos bytes da mensagem
   bool ack;
   bool notack;
   bool printa;
   char inout[230]; //string de caracteres da mensagem
 } struct_message;
+uint8_t espBuffSize = 230; //igual ao inout[230]
 
 // Create a struct_message called DHTReadings to hold sensor readings
 struct_message outCourier; //DHTReadings;
@@ -49,6 +56,7 @@ struct_message outCourier; //DHTReadings;
 // Create a struct_message to hold incoming sensor readings
 struct_message inCourier; //incomingReadings;
 
+String macAdd = "";
 
 // Callback when data is sent
 void OnDataSent(uint8_t *mac_addr, uint8_t sendStatus) {
@@ -74,15 +82,12 @@ void OnDataRecv(uint8_t * mac, uint8_t *incomingData, uint8_t len) {
   printa = inCourier.printa;
  }
 
-
-String macAdd = "";
 unsigned long t0 = millis();
 
 void setup() {
-  // Init Serial Monitor
- // Serial.begin(baud); //DMS
-//  Serial.begin(19200); //Boia
-  ::setRxBufferSize(size_t size)
+//Init Serial Monitor
+//Serial.begin(baud); //DMS
+//Serial.begin(19200); //Boia
   Serial.begin(115200);
    
 
@@ -90,6 +95,7 @@ void setup() {
   WiFi.mode(WIFI_STA);
   macAdd = WiFi.macAddress();
   WiFi.disconnect();
+  
   Serial.println("\nEndereco MAC ");
   Serial.println(macAdd);
   delay(3000);
@@ -115,8 +121,7 @@ void setup() {
 
   outCourier.temp = 0;
   outCourier.hum = 0;
-  Serial.setTimeout(1);
- 
+  Serial.setTimeout(5);
 }
 
 
@@ -124,13 +129,33 @@ void loop() {
 
   //// LEITURA DA PORTA SERIAL PARA ENVIO
   if(Serial.available()){
-    readsize += Serial.readBytes(outBuffer,sizeof(outBuffer));//outCourier.inout recebe a string
-//    Serial.println("readsize");
-//    Serial.println(readsize);
-//    Serial.println("outBuffer");
-//    Serial.println(outBuffer);
-    flagNewSerial = true;
+    sb[sbi] = Serial.readString();
+    Serial.print(sb[sbi]);
+//    Serial.println(sbi);
+//    Serial.println(sb[sbi].length());
+    sbf[sbi] = true;
+    if(sb[sbi].length() > espBuffSize){ //caso a mensagem seja maior do que o buffer de envio da mensagem
+//      Serial.println("sb[sbi].length() > espBuffSize");
+      int divi = sb[sbi].length() / espBuffSize;
+//      Serial.println("divi");
+//      Serial.println(divi);
+      String temp = sb[sbi]; //string temporaria para ajudar a splitar a principal
+      int aux = 0;
+      for(aux = 0; aux <= divi; aux++){
+        sb[sbi] = temp.substring(aux*espBuffSize,(aux+1)*espBuffSize);
+//        Serial.print(" sb[sbi] = ");
+//        Serial.print(sb[sbi]);
+//        Serial.print(" sbi = ");
+//        Serial.println(sbi);
+        sbi++;
+        }
       }
+//    Serial.println(sbi);
+    sbi++;  
+    if(sbi > sbArraySize){
+      sbi = 0;
+      }
+    }
   
   //// MONTAGEM DA MENSAGEM PARA ENVIO
   if (notack){
@@ -181,7 +206,6 @@ void loop() {
     //Serial.println("if(ack)");
     ack = false;
     notack = false;
-    readsize = 0;
     outIndex = 0; //zera o indice da variavel outCourier.inout
     for(int aux = 0; aux <= sizeof(outCourier.inout); aux++){
       outCourier.inout[aux] = 0;
