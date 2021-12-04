@@ -231,12 +231,12 @@ void loop() {
 
   ///// ASSINALA FLAG NA message number que receptor recebeu DE SAIDA DEPOIS DE RECEBER O ACK
   if (inCourier.ack){
+    inCourier.ack = false;
     if(inCourier.checksum == outCourier.checksum and inCourier.mNumber == outCourier.mNumber)
       {
       Serial.print("ack");
       Serial.print(" inCourier.mNumber = ");
       Serial.println(inCourier.mNumber);
-      inCourier.ack = false;
       sb[inCourier.mNumber] = "";
       sbf[inCourier.mNumber] = false; //ajusta flag para mensagem ja enviada
       outIndex = inCourier.mNumber + 1; //incrementa para tentar enviar proxima mensagem
@@ -249,7 +249,8 @@ void loop() {
       Serial.print("notack");
       Serial.print(" inCourier.mNumber = ");
       Serial.println(inCourier.mNumber);
-        }
+
+      }
     }
     
   if(try2send > maxTry){
