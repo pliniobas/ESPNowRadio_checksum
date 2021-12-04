@@ -7,6 +7,8 @@
 uint8_t broadcastAddress[] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF}; //geral
 //uint8_t broadcastAddress[] = {0xDC, 0x4F, 0x22, 0x18, 0x4C, 0x96}; //Paca com X - upar na com12
 //uint8_t broadcastAddress[] = {0xDC, 0x4F, 0x22, 0x18, 0x01, 0xA3}; //geral com 2 - upar na com11
+const char sendTo = 'X';
+const char recFrom = '2';
 int baud = 115200;
 //int baud = 460800;
 
@@ -22,7 +24,6 @@ int outIndex = 0; //indice da formacao da mensagem no outCourier.inout[outIndex]
 const int maxTry = 10; //numero de tentativas de envio
 
 
-
 // Variaveis de leitura de string
 String sb[1000]; //serialBuffer - armazena as strings que forem sendo recebidas
 bool sbf[1000]; //serialBufferFlag - indica se o indice tem mensagem a ser enviada.
@@ -36,21 +37,22 @@ float incomingTemp;
 float incomingTempLast;
 int incomingHum;
 int incomingChecksum;
+int lastmNumber = -1; //tem que comecar com valor impossivel de se ter no lastmNumber
 
 
 
 typedef struct struct_message {
-  int temp; //indica mensagem nova
-  uint8_t hum; //tamanho da mensagem
+  uint8_t temp; //indica mensagem nova
+  //uint8_t hum; //tamanho da mensagem
   uint8_t mSize; //tamanho da mensagem
   uint8_t mNumber; //numero da mensagem
   long checksum; //soma dos do valor dos bytes da mensagem
   bool ack;
   bool notack;
   bool printa;
-  char inout[230]; //string de caracteres da mensagem
+  char inout[200]; //string de caracteres da mensagem
 } struct_message;
-uint8_t espBuffSize = 230; //igual ao inout[230]
+uint8_t espBuffSize = 200; //igual ao inout[230]
 
 // Create a struct_message called DHTReadings to hold sensor readings
 struct_message outCourier; //DHTReadings;
@@ -78,7 +80,7 @@ void OnDataSent(uint8_t *mac_addr, uint8_t sendStatus) {
 void OnDataRecv(uint8_t * mac, uint8_t *incomingData, uint8_t len) {
   memcpy(&inCourier, incomingData, sizeof(inCourier));
   incomingTemp = inCourier.temp;
-  incomingHum = inCourier.hum;
+//  incomingHum = inCourier.hum;
   incomingChecksum = inCourier.checksum;
   ack = inCourier.ack;
   notack = inCourier.notack;
@@ -123,7 +125,7 @@ void setup() {
   esp_now_register_recv_cb(OnDataRecv);
 
   outCourier.temp = 0;
-  outCourier.hum = 0;
+//  outCourier.hum = 0;
   Serial.setTimeout(5);
 }
 
@@ -162,31 +164,41 @@ void loop() {
     }
   
   //// MONTAGEM DA MENSAGEM PARA ENVIO
-  int outIndexIni = outIndex; //controle de saida do loop
-  int outIndexNow = 0; //marca mensagem que acabou de tentar ser enviada;
-  while(true){
+  int outIndexIni = outIndex; //controle de saida do loop. 
+  int outIndexNow = 0; //marca mensagem que acabou de tentar ser enviada. E usada no if(try2send > maxTry) para calcelar a mensagem
+  while(outIndex != outIndexIni - 1){ //usa a variável outIndex para controle de posicoes do array
     
     if (sbf[outIndex]){ //verifica se tem algo a mandar na string
       Serial.println();
       Serial.print("outIndex = ");
       Serial.print(outIndex);
-      Serial.print(" try = ");
+      Serial.print(" try2send = ");
       Serial.print(try2send);
       Serial.print(" sb[outIndex] = ");
       Serial.print(sb[outIndex]);
-      
+            
       outIndexNow = outIndex; //Ajuda a cancelar o indice correto da mensagem;
       ///// Montando a mensagem
       outCourier.temp = outCourier.temp + 1; //Indica ao radio receptor que uma nova string chegou;
-      int len = sb[outIndex].length();
+      unsigned int len = sb[outIndex].length();
       outCourier.mSize = len;
       outCourier.mNumber = outIndex;
+
+      Serial.print(" len = ");
+      Serial.println(len);
       //// Copia o conteudo da string na mensagem de ida:
-      sb[outIndex].toCharArray(outCourier.inout,len); //copia a mensagem no buffer para o correio de saida
+      //sb[outIndex].toCharArray(outCourier.inout,len); //copia a mensagem no buffer para o correio de saida - dando problema
+      for(int aux = 0; aux < len; aux++){
+        outCourier.inout[aux] = sb[outIndex].charAt(aux);
+        }
       //// Calcula o checksum da nova mensagem
       int checksum = 0;
-      for (int aux = 0; aux <= len; aux++){
-        checksum += outCourier.inout[aux];
+      for (int aux = 0; aux < len ; aux++){
+        checksum = checksum + outCourier.inout[aux];
+        Serial.print("outCourier.inout[aux] = ");
+        Serial.print(outCourier.inout[aux]);
+        Serial.print(" checksum = ");
+        Serial.println(checksum,DEC);
         }
       outCourier.checksum = checksum;
       outCourier.ack = false; //nao eh uma mensagem de checagem
@@ -194,14 +206,16 @@ void loop() {
       
       ///// Enviando a mensagem
       esp_now_send(broadcastAddress, (uint8_t *) &outCourier, sizeof(outCourier));
-      delay(5);
+      delay(10);
       try2send++;
-      Serial.print("outIndex = ");
-      Serial.println(outIndex);
+//      Serial.print("outIndex = ");
+//      Serial.println(outIndex);
+      //Serial.println(millis());
       break; //Manda a mensagem e sai do loop. O outIndex sera alterado caso receba o ack do outro radio.
-      }//termina o if (sbf[outIndex]) - o outIndex++ fica daqui
-    else{
-      outIndex++;
+      }//termina o if (sbf[outIndex])
+      
+    else{ //Caso a flag de mensagem na String esteja falsa, passa para a próxima
+      outIndex++; 
       if(outIndex > sbArraySize){
         outIndex = 0;
         }
@@ -217,66 +231,75 @@ void loop() {
     inCourier.ack = false;
     sbf[inCourier.mNumber] = false; //ajusta flag para mensagem ja enviada
     outIndex++; //incrementa para tentar enviar proxima mensagem
+    try2send = 0;
     if(outIndex > sbArraySize){
       outIndex = 0;
       }
     }
-
+  
   if(try2send > maxTry){
     try2send = 0;
     sbf[outIndexNow] = false;
     Serial.print("Cancelando indice = ");
     Serial.println(outIndexNow);
+    Serial.println(millis());
     }
     
   ///// CHECA SE HA NOVAS MENSAGENS E SE EH PARA PRINTAR O CORREIO DE CHEGADA
   if (incomingTemp != incomingTempLast and printa) { //outCourier.temp incrementa o incomingTemp - assim indica nova string
-    //Serial.println("incomingTempLast = incomingTemp;");
+    
     incomingTempLast = incomingTemp;
-  ////Checagem do tamanho da mensagem
+    ////Checagem do tamanho da mensagem
     int checksum = 0;
-    for(int aux = 0; aux <= sizeof(inCourier.inout); aux++){
-      if(inCourier.inout[aux] != 0){ 
+    for(int aux = 0; aux < inCourier.mSize; aux++){
         checksum = checksum + inCourier.inout[aux];
-        }
+        Serial.print("checksum = ");
+        Serial.println(checksum,DEC);
       }
-//    Serial.println("inCourier.checksum");  
-//    Serial.println(inCourier.checksum);
-//    Serial.println("checksum");  
-//    Serial.println(checksum);
-//    Serial.println("incomingHum");
-//    Serial.println(incomingHum);
+    
+    Serial.print("inCourier.checksum = ");  
+    Serial.print(inCourier.checksum);
+    Serial.print(" checksum = ");  
+    Serial.print(checksum);
+    Serial.print(" inCourier.mSize = ");
+    Serial.print(inCourier.mSize);
+    Serial.print(" lastmNumber = ");
+    Serial.print(lastmNumber);
+    Serial.print(" inCourier.mNumber = ");
+    Serial.println(inCourier.mNumber);
     //Se o checksum e o tamanho da mensagem bater, printa a mensagem;
-    if(checksum == inCourier.checksum){
-//      Serial.println("inCourier.inout");
-//      char temp[incomingHum + 1];
+    //lastmNumber recorda o nNumber da ultima mensagem e nao printa novamente caso seja igual,
+    if(checksum == inCourier.checksum and lastmNumber != inCourier.mNumber){ //o checksum esta ok e a mensagem e nova. Printa tudo.
+      Serial.println("The message is:");
       int aux = 0;
-      for(aux = 0; aux < incomingHum; aux++){
-//        temp[aux] = inCourier.inout[aux];
+      for(aux = 0; aux < inCourier.mSize; aux++){
         Serial.print(inCourier.inout[aux]);
         }
-//      aux++;
-//      temp[aux] = 0;
-//      Serial.print(temp);
-      outCourier.ack = true;
-      outCourier.notack = false;
-      outCourier.printa = false;
+      Serial.println();
+      Serial.println("The message end.");
+      //Configura as flags da mensagem para fazer o emissor parar de mandar as mensagens
+      outCourier.ack = true; //Diz para o emissor que recebeu a mensagem
+      outCourier.printa = false; //Diz para o emissor que nao eh pra printar o conteudo
+      outCourier.mNumber = inCourier.mNumber; // informa o numero da mensagem para o emissor cancelar a transmissao
+      lastmNumber = inCourier.mNumber;
+      outCourier.temp++;      
       }
-    else{
-      Serial.println("outCourier.notack = true;");
-      outCourier.ack = false;
-      outCourier.notack = true;
+    else if(checksum == inCourier.checksum and lastmNumber == inCourier.mNumber){//o checksum veio correto, mas a mensagem veio repetida
+      outCourier.ack = true; //Diz para o emissor que recebeu a mensagem
       outCourier.printa = false;
+      outCourier.mNumber = inCourier.mNumber; // informa o numero da mensagem novamente para o emissor cancelar a transmissao
+      outCourier.temp++;      
       }
-      char tempstring[sizeof(outCourier.inout)];
-      for(int aux = 0; aux <= sizeof(tempstring); aux++){
-        tempstring[aux] = outCourier.inout[aux];
-        outCourier.inout[aux] = 0;
-        }
-      esp_now_send(broadcastAddress, (uint8_t *) &outCourier, sizeof(outCourier));      
-      for(int aux = 0; aux <= sizeof(tempstring); aux++){
-         outCourier.inout[aux] = tempstring[aux];
-        }       
+    else{ //O checksum veio incorreto e a ultima mensagem ainda nao foi printada
+      outCourier.ack = false; //Diz para o emissor que recebeu a mensagem
+      outCourier.printa = false;
+      outCourier.temp++;      
+      }
+ 
+    for(int aux = 0; aux <= sizeof(espBuffSize); aux++){
+      outCourier.inout[aux] = 0;
+      }
+    esp_now_send(broadcastAddress, (uint8_t *) &outCourier, sizeof(outCourier));      
   }
 
   //TESTE DE ENVIO A JATO
