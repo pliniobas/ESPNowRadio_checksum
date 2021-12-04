@@ -215,7 +215,6 @@ void loop() {
   if (inCourier.ack){
     Serial.println("ack");
     inCourier.ack = false;
-    inCourier.notack = false;
     sbf[inCourier.mNumber] = false; //ajusta flag para mensagem ja enviada
     outIndex++; //incrementa para tentar enviar proxima mensagem
     if(outIndex > sbArraySize){
