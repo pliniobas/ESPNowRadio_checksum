@@ -9,8 +9,8 @@ uint8_t broadcastAddress[] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF}; //geral
 //uint8_t broadcastAddress[] = {0xDC, 0x4F, 0x22, 0x18, 0x01, 0xA3}; //geral com 2 - upar na com11
 const char sendTo = 'X';
 const char recFrom = '2';
-int baud = 115200;
-//int baud = 460800;
+//int baud = 115200;
+int baud = 460800;
 
 //Variaveis de controle de envio
 bool flagNewSerial = false; //indica novo caractere serial chegando --------------------------------------
@@ -93,9 +93,9 @@ unsigned long t0 = millis();
 
 void setup() {
 //Init Serial Monitor
-//Serial.begin(baud); //DMS
+Serial.begin(baud); //DMS
 //Serial.begin(19200); //Boia
-  Serial.begin(115200);
+
    
 
   // Set device as a Wi-Fi Station
@@ -172,13 +172,13 @@ void loop() {
   while(outIndex != outIndexIni - 1){ //usa a variável outIndex para controle de posicoes do array
     
     if (sbf[outIndex]){ //verifica se tem algo a mandar na string
-      Serial.println();
-      Serial.print("outIndex = ");
-      Serial.print(outIndex);
-      Serial.print(" try2send = ");
-      Serial.print(try2send);
-      Serial.print(" sb[outIndex] = ");
-      Serial.print(sb[outIndex]);
+      //Serial.println();
+      //Serial.print("outIndex = ");
+      //Serial.print(outIndex);
+      //Serial.print(" try2send = ");
+      //Serial.print(try2send);
+      //Serial.print(" sb[outIndex] = ");
+      //Serial.print(sb[outIndex]);
             
       outIndexNow = outIndex; //Ajuda a cancelar o indice correto da mensagem;
       ///// Montando a mensagem
@@ -187,8 +187,8 @@ void loop() {
       outCourier.mSize = len;
       outCourier.mNumber = outIndex;
 
-      Serial.print(" len = ");
-      Serial.println(len);
+      //Serial.print(" len = ");
+      //Serial.println(len);
       //// Copia o conteudo da string na mensagem de ida:
       //sb[outIndex].toCharArray(outCourier.inout,len); //copia a mensagem no buffer para o correio de saida - dando problema
       for(int aux = 0; aux < len; aux++){
@@ -234,9 +234,9 @@ void loop() {
     inCourier.ack = false;
     if(inCourier.checksum == outCourier.checksum and inCourier.mNumber == outCourier.mNumber)
       {
-      Serial.print("ack");
-      Serial.print(" inCourier.mNumber = ");
-      Serial.println(inCourier.mNumber);
+      //Serial.print("ack");
+      //Serial.print(" inCourier.mNumber = ");
+      //Serial.println(inCourier.mNumber);
       sb[inCourier.mNumber] = "";
       sbf[inCourier.mNumber] = false; //ajusta flag para mensagem ja enviada
       outIndex = inCourier.mNumber + 1; //incrementa para tentar enviar proxima mensagem
@@ -246,9 +246,9 @@ void loop() {
         }
       }
     else{
-      Serial.print("notack");
-      Serial.print(" inCourier.mNumber = ");
-      Serial.println(inCourier.mNumber);
+      //Serial.print("notack");
+      //Serial.print(" inCourier.mNumber = ");
+      //Serial.println(inCourier.mNumber);
 
       }
     }
@@ -257,9 +257,9 @@ void loop() {
     try2send = 0;
     sb[outIndexNow] = "";
     sbf[outIndexNow] = false;
-    Serial.print("Cancelando indice = ");
-    Serial.println(outIndexNow);
-    Serial.println(millis());
+    //Serial.print("Cancelando indice = ");
+    //Serial.println(outIndexNow);
+    //Serial.println(millis());
     }
     
   ///// CHECA SE HA NOVAS MENSAGENS E SE EH PARA PRINTAR O CORREIO DE CHEGADA
@@ -273,27 +273,27 @@ void loop() {
 //        Serial.print("checksum = ");
 //        Serial.println(checksum,DEC);
       }
-    Serial.println("New Messagem detected +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++");
-    Serial.print("inCourier.checksum = ");  
-    Serial.print(inCourier.checksum);
-    Serial.print(" checksum = ");  
-    Serial.print(checksum);
-    Serial.print(" inCourier.mSize = ");
-    Serial.print(inCourier.mSize);
-    Serial.print(" lastmNumber = ");
-    Serial.print(lastmNumber);
-    Serial.print(" inCourier.mNumber = ");
-    Serial.println(inCourier.mNumber);
+    //Serial.println("New Messagem detected +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++");
+    //Serial.print("inCourier.checksum = ");  
+    //Serial.print(inCourier.checksum);
+    //Serial.print(" checksum = ");  
+    //Serial.print(checksum);
+    //Serial.print(" inCourier.mSize = ");
+    //Serial.print(inCourier.mSize);
+    //Serial.print(" lastmNumber = ");
+    //Serial.print(lastmNumber);
+    //Serial.print(" inCourier.mNumber = ");
+    //Serial.println(inCourier.mNumber);
     //Se o checksum e o tamanho da mensagem bater, printa a mensagem;
     //lastmNumber recorda o nNumber da ultima mensagem e nao printa novamente caso seja igual,
     if(checksum == inCourier.checksum and lastmNumber != inCourier.mNumber){ //o checksum esta ok e a mensagem e nova. Printa tudo.
-      Serial.println("The message is:");
+      //Serial.println("The message is:");
       int aux = 0;
       for(aux = 0; aux < inCourier.mSize; aux++){
         Serial.print(inCourier.inout[aux]);
         }
-      Serial.println();
-      Serial.println("The message end -------------------------------------------------------------------------------------");
+      //Serial.println();
+      //Serial.println("The message end -------------------------------------------------------------------------------------");
       //Configura as flags da mensagem para fazer o emissor parar de mandar as mensagens
       outCourier.ack = true; //Diz para o emissor que recebeu a mensagem
       outCourier.printa = false; //Diz para o emissor que nao eh pra printar o conteudo
@@ -307,9 +307,9 @@ void loop() {
       esp_now_send(broadcastAddress, (uint8_t *) &outCourier, sizeof(outCourier));      
       }
     else if(checksum == inCourier.checksum and lastmNumber == inCourier.mNumber){//o checksum veio correto, mas a mensagem veio repetida
-      Serial.print("Please cancel transmission of mNumber = ");
-      Serial.print(inCourier.mNumber);
-      Serial.println("--------------------------------------------------------------");
+      //Serial.print("Please cancel transmission of mNumber = ");
+      //Serial.print(inCourier.mNumber);
+      //Serial.println("--------------------------------------------------------------");
       outCourier.ack = true; //Diz para o emissor que recebeu a mensagem
       outCourier.printa = false;
       outCourier.checksum = inCourier.checksum;
@@ -321,24 +321,24 @@ void loop() {
       esp_now_send(broadcastAddress, (uint8_t *) &outCourier, sizeof(outCourier));      
       }
     else if(checksum =! inCourier.checksum){
-      Serial.print("Checksum Error. Waiting for next transmission ");
-      Serial.print(inCourier.mNumber);
-      Serial.println("--------------------------------------------------------------");
+      //Serial.print("Checksum Error. Waiting for next transmission ");
+      //Serial.print(inCourier.mNumber);
+      //Serial.println("--------------------------------------------------------------");
       }
     else if(lastmNumber == inCourier.mNumber){ //O checksum veio incorreto e a ultima mensagem ainda nao foi printada
-      Serial.print("Erro do tipo lastmNumber == inCourier.mNumber = ");
-      Serial.print(inCourier.mNumber);
-      Serial.println("--------------------------------------------------------------");
+      //Serial.print("Erro do tipo lastmNumber == inCourier.mNumber = ");
+      //Serial.print(inCourier.mNumber);
+      //Serial.println("--------------------------------------------------------------");
       }
     else if(lastmNumber == inCourier.mNumber){ //O checksum veio incorreto e a ultima mensagem ainda nao foi printada
-      Serial.print("Erro do tipo lastmNumber == inCourier.mNumber = ");
-      Serial.print(inCourier.mNumber);
-      Serial.println("--------------------------------------------------------------");
+      //Serial.print("Erro do tipo lastmNumber == inCourier.mNumber = ");
+      //Serial.print(inCourier.mNumber);
+      //Serial.println("--------------------------------------------------------------");
       }
     else{
-      Serial.print("Erro desconhecido. inCourier.mNumber = ");
-      Serial.print(inCourier.mNumber);
-      Serial.println("--------------------------------------------------------------");
+      //Serial.print("Erro desconhecido. inCourier.mNumber = ");
+      //Serial.print(inCourier.mNumber);
+      //Serial.println("--------------------------------------------------------------");
       } 
          
   }
