@@ -21,7 +21,7 @@ int outChecksum; //armazena valor do checksum da mensagem... talvez nao sera usa
 char outBuffer[230]; //buffer para receber a leitura Serial.readBytes; --------------------------------------
 
 int outIndex = 0; //indice da formacao da mensagem no outCourier.inout[outIndex]
-const int maxTry = 10; //numero de tentativas de envio
+const int maxTry = 10000; //numero de tentativas de envio
 int lastCheckSum = 0; // E usado no if(ack). Trabalha com o inCourier.mNumber para averiguar o ack;
 
 
@@ -95,8 +95,7 @@ void setup() {
 //Init Serial Monitor
 Serial.begin(baud); //DMS
 //Serial.begin(19200); //Boia
-
-   
+     
 
   // Set device as a Wi-Fi Station
   WiFi.mode(WIFI_STA);
@@ -253,14 +252,14 @@ void loop() {
       }
     }
     
-  if(try2send > maxTry){
-    try2send = 0;
-    sb[outIndexNow] = "";
-    sbf[outIndexNow] = false;
+//  if(try2send > maxTry){
+//    try2send = 0;
+//    sb[outIndexNow] = "";
+//    sbf[outIndexNow] = false;
     //Serial.print("Cancelando indice = ");
     //Serial.println(outIndexNow);
     //Serial.println(millis());
-    }
+//    }
     
   ///// CHECA SE HA NOVAS MENSAGENS E SE EH PARA PRINTAR O CORREIO DE CHEGADA
   if (incomingTemp != incomingTempLast and printa) { //outCourier.temp incrementa o incomingTemp - assim indica nova string
