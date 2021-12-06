@@ -10,16 +10,10 @@ uint8_t broadcastAddress[] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF}; //geral
 const char sendTo = 'X';
 const char recFrom = '2';
 //int baud = 115200;
-int baud = 460800;
+//int baud = 460800;
+int baud = 19200;
 
 //Variaveis de controle de envio
-bool flagNewSerial = false; //indica novo caractere serial chegando --------------------------------------
-bool ack = false; //indica sucesso na recepcao de uma mensagem e apaga o conteudo ja enviado --------------------------------------
-bool notack = false; //indica a falha na recepcao de uma mensagem e nova tentativa --------------------------------------
-bool printa = false; //indica se o correio tem mensagem a ser printada ou se eh apenas de ack --------------------------------------
-int outChecksum; //armazena valor do checksum da mensagem... talvez nao sera usado --------------------------------------
-char outBuffer[230]; //buffer para receber a leitura Serial.readBytes; --------------------------------------
-
 int outIndex = 0; //indice da formacao da mensagem no outCourier.inout[outIndex]
 const int maxTry = 10000; //numero de tentativas de envio
 int lastCheckSum = 0; // E usado no if(ack). Trabalha com o inCourier.mNumber para averiguar o ack;
@@ -28,19 +22,15 @@ int lastCheckSum = 0; // E usado no if(ack). Trabalha com o inCourier.mNumber pa
 // Variaveis de leitura de string
 String sb[1000]; //serialBuffer - armazena as strings que forem sendo recebidas
 bool sbf[1000]; //serialBufferFlag - indica se o indice tem mensagem a ser enviada.
+uint8_t sbArraySize = 1000; //igual ao tamanho do array sb[sbArraySize]
 int try2send = 0;
 int sbi = 0; //serialBufferIndex - indice dos arrays de sb. Tambem sera usado como message number. Entra no hum da
-int readsize = 0; // --------------------------------------------------------------------------------------------------------
-uint8_t sbArraySize = 1000; //igual ao tamanho do array sb[sbArraySize]
+bool flagOverBuff = false;
 
 
 // Define variables to store incoming readings
-float incomingTemp;
 float incomingTempLast;
-int incomingHum;
-int incomingChecksum;
 int lastmNumber = -1; //tem que comecar com valor impossivel de se ter no lastmNumber
-
 
 
 typedef struct struct_message {
@@ -49,12 +39,13 @@ typedef struct struct_message {
   uint8_t mSize; //tamanho da mensagem
   uint16_t mNumber; //numero da mensagem
   uint32_t checksum; //soma dos do valor dos bytes da mensagem
+  uint8_t network;
   bool ack;
   bool notack;
   bool printa;
-  char inout[200]; //string de caracteres da mensagem
+  char inout[235]; //string de caracteres da mensagem
 } struct_message;
-uint8_t espBuffSize = 200; //igual ao valor de inout[espBuffSize]
+uint8_t espBuffSize = 235; //igual ao valor de struct_message.inout[espBuffSize]
 
 // Create a struct_message called DHTReadings to hold sensor readings
 struct_message outCourier; //DHTReadings;
@@ -81,12 +72,10 @@ void OnDataSent(uint8_t *mac_addr, uint8_t sendStatus) {
 // Callback when data is received
 void OnDataRecv(uint8_t * mac, uint8_t *incomingData, uint8_t len) {
   memcpy(&inCourier, incomingData, sizeof(inCourier));
-  incomingTemp = inCourier.temp;
+//  incomingTemp = inCourier.temp;
 //  incomingHum = inCourier.hum;
-  incomingChecksum = inCourier.checksum;
-  ack = inCourier.ack;
-  notack = inCourier.notack;
-  printa = inCourier.printa;
+//  incomingChecksum = inCourier.checksum;
+
  }
 
 unsigned long t0 = millis();
@@ -252,19 +241,32 @@ void loop() {
       }
     }
     
-//  if(try2send > maxTry){
-//    try2send = 0;
+  if(try2send > maxTry){
+    try2send = 0;
 //    sb[outIndexNow] = "";
 //    sbf[outIndexNow] = false;
-    //Serial.print("Cancelando indice = ");
+//    Serial.print("MaxTry Reached =( ");
     //Serial.println(outIndexNow);
     //Serial.println(millis());
-//    }
+    }
+
+  if (sbi < outIndex and flagOverBuff == false){
+    flagOverBuff = true;
+//    Serial.println("Overbuff detectado");
+//    Serial.print("sbi ");
+//    Serial.print(sbi);
+//    Serial.print(" outIndex ");
+//    Serial.println(outIndex);
+    }
+  if (sbi > outIndex){
+    flagOverBuff = false;
+    }
+  
     
   ///// CHECA SE HA NOVAS MENSAGENS E SE EH PARA PRINTAR O CORREIO DE CHEGADA
-  if (incomingTemp != incomingTempLast and printa) { //outCourier.temp incrementa o incomingTemp - assim indica nova string
+  if (inCourier.temp != incomingTempLast and inCourier.printa) { //outCourier.temp incrementa o incomingTemp - assim indica nova string
     
-    incomingTempLast = incomingTemp;
+    incomingTempLast = inCourier.temp;
     ////Checagem do tamanho da mensagem
     int checksum = 0;
     for(int aux = 0; aux < inCourier.mSize; aux++){
