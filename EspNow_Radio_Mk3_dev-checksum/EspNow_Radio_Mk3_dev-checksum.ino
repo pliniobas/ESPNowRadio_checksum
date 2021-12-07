@@ -11,7 +11,7 @@ const char sendTo = 'X';
 const char recFrom = '2';
 //int baud = 115200;
 //int baud = 460800;
-int baud = 19200;
+int baud = 115200;
 
 //Variaveis de controle de envio
 int outIndex = 0; //indice da formacao da mensagem no outCourier.inout[outIndex]
@@ -124,7 +124,21 @@ void loop() {
 
   //// LEITURA DA PORTA SERIAL PARA ENVIO
   if(Serial.available()){
-    sb[sbi] = Serial.readString();
+    
+    char buff[espBuffSize];
+    uint8_t readsize = Serial.available();
+    readsize = Serial.readBytes(buff,readsize);
+    sb[sbi] = "";
+    for(int aux = 0; aux < readsize; aux++){
+      if(buff[aux] <= 127){
+        sb[sbi] += String(buff[aux]);
+        }
+      else{
+        sb[sbi] += 0;
+        }
+      }
+    
+    //sb[sbi] = Serial.readString();
 //    Serial.print(sb[sbi]);
 //    Serial.println(sbi);
 //    Serial.println(sb[sbi].length());
