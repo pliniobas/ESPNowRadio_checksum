@@ -2,16 +2,15 @@
 #include <espnow.h>
 
 // REPLACE WITH THE MAC Address of your receiver
-//uint8_t broadcastAddress[] = {0x2C, 0x3A, 0xE8, 0x0F, 0x14, 0x21}; //veia - setar na nova
-//uint8_t broadcastAddress[] = {0x2C, 0x3A, 0xE8, 0x0F, 0x14, 0x21}; //nova - setar na veia
+//uint8_t broadcastAddress[] = {0xDC, 0x4F, 0x22, 0x18, 0x25, 0xF9}; //par Boia
+//uint8_t broadcastAddress[] = {0x2C, 0x3A, 0xE8, 0x0F, 0x14, 0x21}; //Boia
 uint8_t broadcastAddress[] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF}; //geral
-//uint8_t broadcastAddress[] = {0xDC, 0x4F, 0x22, 0x18, 0x4C, 0x96}; //Paca com X - upar na com12
-//uint8_t broadcastAddress[] = {0xDC, 0x4F, 0x22, 0x18, 0x01, 0xA3}; //geral com 2 - upar na com11
-const char sendTo = 'X';
-const char recFrom = '2';
-//int baud = 115200;
-//int baud = 460800;
+//uint8_t broadcastAddress[] = {0xDC, 0x4F, 0x22, 0x18, 0x4C, 0x96}; //Placa 3
+//uint8_t broadcastAddress[] = {0xDC, 0x4F, 0x22, 0x18, 0x01, 0xA3}; //Placa 2
+const char networkChannel = 'Y'; //boia Mero esta no X
 int baud = 115200;
+//int baud = 460800;
+//int baud = 19200;
 
 //Variaveis de controle de envio
 int outIndex = 0; //indice da formacao da mensagem no outCourier.inout[outIndex]
@@ -134,7 +133,7 @@ void loop() {
         sb[sbi] += String(buff[aux]);
         }
       else{
-        sb[sbi] += 0;
+        sb[sbi] += char(0);
         }
       }
     
@@ -185,6 +184,7 @@ void loop() {
       outIndexNow = outIndex; //Ajuda a cancelar o indice correto da mensagem;
       ///// Montando a mensagem
       outCourier.temp = outCourier.temp + 1; //Indica ao radio receptor que uma nova string chegou;
+      outCourier.network = networkChannel;
       unsigned int len = sb[outIndex].length();
       outCourier.mSize = len;
       outCourier.mNumber = outIndex;
@@ -232,7 +232,7 @@ void loop() {
     }
 
   ///// ASSINALA FLAG NA message number que receptor recebeu DE SAIDA DEPOIS DE RECEBER O ACK
-  if (inCourier.ack){
+  if (inCourier.ack and inCourier.network == networkChannel){
     inCourier.ack = false;
     if(inCourier.checksum == outCourier.checksum and inCourier.mNumber == outCourier.mNumber)
       {
@@ -279,83 +279,87 @@ void loop() {
     
   ///// CHECA SE HA NOVAS MENSAGENS E SE EH PARA PRINTAR O CORREIO DE CHEGADA
   if (inCourier.temp != incomingTempLast and inCourier.printa) { //outCourier.temp incrementa o incomingTemp - assim indica nova string
-    
-    incomingTempLast = inCourier.temp;
-    ////Checagem do tamanho da mensagem
-    int checksum = 0;
-    for(int aux = 0; aux < inCourier.mSize; aux++){
-        checksum = checksum + inCourier.inout[aux];
-//        Serial.print("checksum = ");
-//        Serial.println(checksum,DEC);
-      }
-    //Serial.println("New Messagem detected +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++");
-    //Serial.print("inCourier.checksum = ");  
-    //Serial.print(inCourier.checksum);
-    //Serial.print(" checksum = ");  
-    //Serial.print(checksum);
-    //Serial.print(" inCourier.mSize = ");
-    //Serial.print(inCourier.mSize);
-    //Serial.print(" lastmNumber = ");
-    //Serial.print(lastmNumber);
-    //Serial.print(" inCourier.mNumber = ");
-    //Serial.println(inCourier.mNumber);
-    //Se o checksum e o tamanho da mensagem bater, printa a mensagem;
-    //lastmNumber recorda o nNumber da ultima mensagem e nao printa novamente caso seja igual,
-    if(checksum == inCourier.checksum and lastmNumber != inCourier.mNumber){ //o checksum esta ok e a mensagem e nova. Printa tudo.
-      //Serial.println("The message is:");
-      int aux = 0;
-      for(aux = 0; aux < inCourier.mSize; aux++){
-        Serial.print(inCourier.inout[aux]);
+    if (inCourier.network == networkChannel){    
+      incomingTempLast = inCourier.temp;
+      ////Checagem do tamanho da mensagem
+      int checksum = 0;
+      for(int aux = 0; aux < inCourier.mSize; aux++){
+          checksum = checksum + inCourier.inout[aux];
+  //        Serial.print("checksum = ");
+  //        Serial.println(checksum,DEC);
         }
-      //Serial.println();
-      //Serial.println("The message end -------------------------------------------------------------------------------------");
-      //Configura as flags da mensagem para fazer o emissor parar de mandar as mensagens
-      outCourier.ack = true; //Diz para o emissor que recebeu a mensagem
-      outCourier.printa = false; //Diz para o emissor que nao eh pra printar o conteudo
-      outCourier.checksum = inCourier.checksum;
-      outCourier.mNumber = inCourier.mNumber; // informa o numero da mensagem para o emissor cancelar a transmissao
-      lastmNumber = inCourier.mNumber;
-      //outCourier.temp++; 
-      for(int aux = 0; aux <= sizeof(espBuffSize); aux++){
-        outCourier.inout[aux] = 0;
+      //Serial.println("New Messagem detected +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++");
+      //Serial.print("inCourier.checksum = ");  
+      //Serial.print(inCourier.checksum);
+      //Serial.print(" checksum = ");  
+      //Serial.print(checksum);
+      //Serial.print(" inCourier.mSize = ");
+      //Serial.print(inCourier.mSize);
+      //Serial.print(" lastmNumber = ");
+      //Serial.print(lastmNumber);
+      //Serial.print(" inCourier.mNumber = ");
+      //Serial.println(inCourier.mNumber);
+      //Se o checksum e o tamanho da mensagem bater, printa a mensagem;
+      //lastmNumber recorda o nNumber da ultima mensagem e nao printa novamente caso seja igual,
+      if(checksum == inCourier.checksum and lastmNumber != inCourier.mNumber){ //o checksum esta ok e a mensagem e nova. Printa tudo.
+        //Serial.println("The message is:");
+        int aux = 0;
+        String temp = "";
+        for(aux = 0; aux < inCourier.mSize; aux++){
+//          Serial.print(inCourier.inout[aux]);
+            temp += String(inCourier.inout[aux]);
+          }
+        Serial.print(temp);
+        //Serial.println();
+        //Serial.println("The message end -------------------------------------------------------------------------------------");
+        //Configura as flags da mensagem para fazer o emissor parar de mandar as mensagens
+        outCourier.ack = true; //Diz para o emissor que recebeu a mensagem
+        outCourier.printa = false; //Diz para o emissor que nao eh pra printar o conteudo
+        outCourier.checksum = inCourier.checksum;
+        outCourier.mNumber = inCourier.mNumber; // informa o numero da mensagem para o emissor cancelar a transmissao
+        lastmNumber = inCourier.mNumber;
+        //outCourier.temp++; 
+        for(int aux = 0; aux <= sizeof(espBuffSize); aux++){
+          outCourier.inout[aux] = 0;
+          }
+        outCourier.network = networkChannel;
+        esp_now_send(broadcastAddress, (uint8_t *) &outCourier, sizeof(outCourier));      
         }
-      esp_now_send(broadcastAddress, (uint8_t *) &outCourier, sizeof(outCourier));      
-      }
-    else if(checksum == inCourier.checksum and lastmNumber == inCourier.mNumber){//o checksum veio correto, mas a mensagem veio repetida
-      //Serial.print("Please cancel transmission of mNumber = ");
-      //Serial.print(inCourier.mNumber);
-      //Serial.println("--------------------------------------------------------------");
-      outCourier.ack = true; //Diz para o emissor que recebeu a mensagem
-      outCourier.printa = false;
-      outCourier.checksum = inCourier.checksum;
-      outCourier.mNumber = inCourier.mNumber; // informa o numero da mensagem novamente para o emissor cancelar a transmissao
-      //outCourier.temp++;      
-      for(int aux = 0; aux <= sizeof(espBuffSize); aux++){
-        outCourier.inout[aux] = 0;
+      else if(checksum == inCourier.checksum and lastmNumber == inCourier.mNumber){//o checksum veio correto, mas a mensagem veio repetida
+        //Serial.print("Please cancel transmission of mNumber = ");
+        //Serial.print(inCourier.mNumber);
+        //Serial.println("--------------------------------------------------------------");
+        outCourier.ack = true; //Diz para o emissor que recebeu a mensagem
+        outCourier.printa = false;
+        outCourier.checksum = inCourier.checksum;
+        outCourier.mNumber = inCourier.mNumber; // informa o numero da mensagem novamente para o emissor cancelar a transmissao
+        //outCourier.temp++;      
+        for(int aux = 0; aux <= sizeof(espBuffSize); aux++){
+          outCourier.inout[aux] = 0;
+          }
+        esp_now_send(broadcastAddress, (uint8_t *) &outCourier, sizeof(outCourier));      
         }
-      esp_now_send(broadcastAddress, (uint8_t *) &outCourier, sizeof(outCourier));      
+      else if(checksum =! inCourier.checksum){
+        //Serial.print("Checksum Error. Waiting for next transmission ");
+        //Serial.print(inCourier.mNumber);
+        //Serial.println("--------------------------------------------------------------");
+        }
+      else if(lastmNumber == inCourier.mNumber){ //O checksum veio incorreto e a ultima mensagem ainda nao foi printada
+        //Serial.print("Erro do tipo lastmNumber == inCourier.mNumber = ");
+        //Serial.print(inCourier.mNumber);
+        //Serial.println("--------------------------------------------------------------");
+        }
+      else if(lastmNumber == inCourier.mNumber){ //O checksum veio incorreto e a ultima mensagem ainda nao foi printada
+        //Serial.print("Erro do tipo lastmNumber == inCourier.mNumber = ");
+        //Serial.print(inCourier.mNumber);
+        //Serial.println("--------------------------------------------------------------");
+        }
+      else{
+        //Serial.print("Erro desconhecido. inCourier.mNumber = ");
+        //Serial.print(inCourier.mNumber);
+        //Serial.println("--------------------------------------------------------------");
+        } 
       }
-    else if(checksum =! inCourier.checksum){
-      //Serial.print("Checksum Error. Waiting for next transmission ");
-      //Serial.print(inCourier.mNumber);
-      //Serial.println("--------------------------------------------------------------");
-      }
-    else if(lastmNumber == inCourier.mNumber){ //O checksum veio incorreto e a ultima mensagem ainda nao foi printada
-      //Serial.print("Erro do tipo lastmNumber == inCourier.mNumber = ");
-      //Serial.print(inCourier.mNumber);
-      //Serial.println("--------------------------------------------------------------");
-      }
-    else if(lastmNumber == inCourier.mNumber){ //O checksum veio incorreto e a ultima mensagem ainda nao foi printada
-      //Serial.print("Erro do tipo lastmNumber == inCourier.mNumber = ");
-      //Serial.print(inCourier.mNumber);
-      //Serial.println("--------------------------------------------------------------");
-      }
-    else{
-      //Serial.print("Erro desconhecido. inCourier.mNumber = ");
-      //Serial.print(inCourier.mNumber);
-      //Serial.println("--------------------------------------------------------------");
-      } 
-         
   }
 
   //TESTE DE ENVIO A JATO
