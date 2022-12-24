@@ -7,10 +7,10 @@
 uint8_t broadcastAddress[] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF}; //geral
 //uint8_t broadcastAddress[] = {0xDC, 0x4F, 0x22, 0x18, 0x4C, 0x96}; //Placa 3
 //uint8_t broadcastAddress[] = {0xDC, 0x4F, 0x22, 0x18, 0x01, 0xA3}; //Placa 2
-const char networkChannel = 'Y'; //boia Mero esta no X
-int baud = 115200;
+const char networkChannel = 'X'; //boia Mero esta no X
+//int baud = 115200;
 //int baud = 460800;
-//int baud = 19200;
+int baud = 19200;
 
 //Variaveis de controle de envio
 int outIndex = 0; //indice da formacao da mensagem no outCourier.inout[outIndex]
@@ -120,7 +120,12 @@ Serial.begin(baud); //DMS
 
 
 void loop() {
-
+  ///Reset depois de 1 dia ligado
+  if(millis() > 86400000){
+    Serial.println("Radio ESP Reset...");
+    ESP.restart();
+  }
+  
   //// LEITURA DA PORTA SERIAL PARA ENVIO
   if(Serial.available()){
     
